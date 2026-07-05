@@ -8,6 +8,8 @@ import {
   Check,
 } from 'lucide-react';
 import AppShell from '@/components/AppShell';
+import { trpc } from '@/providers/trpc';
+import { useAuth } from '@/hooks/useAuth';
 
 /* ─── easing token ─── */
 const easeOutExpo = [0.16, 1, 0.3, 1] as [number, number, number, number];
@@ -186,15 +188,33 @@ const familyMembers = [
    ─── PAGE COMPONENT ───
    ═══════════════════════════════════════════════════════════ */
 export default function ParentDashboardPage() {
+  const { user } = useAuth();
+  const { data: studentsList } = trpc.student.list.useQuery();
+  const firstStudentId = studentsList?.[0]?.id;
+  const { data: realStats } = trpc.progress.getStats.useQuery(
+    { studentId: firstStudentId ?? 0 },
+    { enabled: !!firstStudentId },
+  );
+
+  const parentFirstName = (user?.name?.trim().split(/\s+/)[0]) || 'there';
+  const primaryChild = studentsList?.[0];
+
+  // Real stats: modules completed out of total for this child. Streak / weekly
+  // goal have no backend yet, so we don't fabricate them.
+  const modulesDone = realStats?.overall?.completedModules ?? 0;
+  const modulesTotal = realStats?.overall?.totalModules ?? 0;
+
   const [greeting] = useState(() => getGreeting());
   const [currentDate] = useState(() => formatDate());
-  const [unreadCount] = useState(3);
-  const [activityItems, setActivityItems] = useState(activities);
-  const [videoExpanded, setVideoExpanded] = useState(true);
-  const [videoList, setVideoList] = useState(pendingVideos);
   const [intensity, setIntensity] = useState<Intensity>('medium');
   const [toast, setToast] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<PendingVideo | null>(null);
+  // Activity feed and video-review queue have no backend yet — start empty
+  // rather than showing fabricated events.
+  const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
+  const [videoExpanded, setVideoExpanded] = useState(true);
+  const [videoList, setVideoList] = useState<PendingVideo[]>([]);
+  const unreadCount = activityItems.filter((a) => a.unread).length;
 
   /* ── helpers ── */
   const showToast = useCallback((msg: string) => {
@@ -210,7 +230,7 @@ export default function ParentDashboardPage() {
 
   const handleRequestChanges = useCallback((videoId: number) => {
     setVideoList(prev => prev.filter(v => v.id !== videoId));
-    showToast('Change request sent to Jordan');
+    showToast('Change request sent');
   }, [showToast]);
 
   const markAllRead = useCallback(() => {
@@ -234,7 +254,7 @@ export default function ParentDashboardPage() {
         >
           <div>
             <h2 className="font-display text-2xl font-semibold text-white">
-              Good {greeting}, Sarah
+              Good {greeting}, {parentFirstName}
             </h2>
             <p className="text-sm text-mediumGray mt-1">{currentDate}</p>
           </div>
@@ -255,7 +275,22 @@ export default function ParentDashboardPage() {
           transition={{ delay: 0.1, duration: 0.4 }}
           className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide"
         >
-          {stats.map((s, i) => (
+          {[
+            {
+              label: 'Modules Done',
+              value: `${modulesDone} of ${modulesTotal}`,
+              sub: modulesTotal > 0 ? 'completed' : 'no plan yet',
+              icon: stats[1].icon,
+              color: stats[1].color,
+            },
+            {
+              label: 'Child',
+              value: primaryChild ? primaryChild.fullName.split(/\s+/)[0] : '—',
+              sub: primaryChild ? `Age ${primaryChild.age}` : 'add a child',
+              icon: stats[0].icon,
+              color: stats[0].color,
+            },
+          ].map((s, i) => (
             <motion.div
               key={s.label}
               initial={{ opacity: 0, y: 15 }}
@@ -294,6 +329,15 @@ export default function ParentDashboardPage() {
           </div>
 
           <div className="relative max-h-[340px] overflow-y-auto pr-1 space-y-2.5 pb-4">
+            {activityItems.length === 0 && (
+              <div className="text-center py-10 px-4">
+                <p className="text-sm text-mediumGray">No activity yet.</p>
+                <p className="text-xs text-mutedSlate mt-1">
+                  As {primaryChild ? primaryChild.fullName.split(/\s+/)[0] : 'your child'} completes
+                  modules and assessments, updates will appear here.
+                </p>
+              </div>
+            )}
             {activityItems.map((item, i) => {
               const Icon = item.icon;
               return (

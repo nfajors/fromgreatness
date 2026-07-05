@@ -4,8 +4,6 @@ import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
 import CountUp from 'react-countup';
-import useEmblaCarousel from 'embla-carousel-react';
-import Autoplay from 'embla-carousel-autoplay';
 import {
   Shield,
   Dna,
@@ -19,7 +17,6 @@ import {
   ClipboardCheck,
   GraduationCap,
   Lock,
-  Star,
   ArrowRight,
   Sparkles,
   TrendingUp,
@@ -148,10 +145,6 @@ function DnaHelixCanvas() {
    ================================================================ */
 export default function LandingPage() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [testimonialEmblaRef] = useEmblaCarousel(
-    { loop: true, align: 'start', slidesToScroll: 1 },
-    [Autoplay({ delay: 3000, stopOnInteraction: true })]
-  );
 
   // GSAP scroll animations
   useGSAP(() => {
@@ -604,89 +597,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ============================================================
-          SECTION 7: TESTIMONIALS
-          ============================================================ */}
-      <section className="relative py-20 md:py-32 overflow-hidden">
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: 'radial-gradient(circle at 50% 50%, #7E57C2, #F8BBD0 50%, transparent 70%)', opacity: 0.05 }}
-        />
-        <div className="relative z-10 mx-auto max-w-[1200px] px-5 md:px-10">
-          <div className="text-center mb-12">
-            <p className="section-label mb-3 reveal-section">Families Love fromGreatness</p>
-            <h2 className="font-display text-[28px] md:text-[42px] font-medium leading-tight text-white reveal-section">
-              Real Families, Real Reconnections
-            </h2>
-          </div>
+      {/* Testimonials section removed — add real, customer-submitted reviews here once available */}
 
-          <div className="reveal-section overflow-hidden" ref={testimonialEmblaRef}>
-            <div className="flex gap-6">
-              {[
-                {
-                  quote: "My daughter finally understands why her grandmother's recipes matter. She's learning Swahili phrases and teaching them to the whole family.",
-                  name: 'Aisha T.',
-                  title: 'Mother of 10-year-old',
-                  avatar: '/testimonial-avatar-1.jpg',
-                },
-                {
-                  quote: "The DNA analysis was eye-opening. My son discovered connections to West Africa he never knew about. The study plans are incredible — he's actually excited to learn.",
-                  name: 'Marcus J.',
-                  title: 'Father of 12-year-old',
-                  avatar: '/testimonial-avatar-2.jpg',
-                },
-                {
-                  quote: "As an educator, I've never seen a tool that combines cultural relevance with real educational rigor. My students are more engaged than ever.",
-                  name: 'Dr. Keisha R.',
-                  title: 'Charter School Principal',
-                  avatar: '/testimonial-avatar-3.jpg',
-                },
-                {
-                  quote: "The personality assessment matched perfectly with my daughter's learning style. She's autistic and the adaptive content really works for her.",
-                  name: 'Angela M.',
-                  title: 'Mother of 9-year-old',
-                  avatar: '/testimonial-avatar-1.jpg',
-                },
-                {
-                  quote: "$75 a year is nothing compared to what we're getting. Private cultural tutors cost $50/hour. This is a no-brainer.",
-                  name: 'David O.',
-                  title: 'Father of two',
-                  avatar: '/testimonial-avatar-2.jpg',
-                },
-                {
-                  quote: "My son's confidence has skyrocketed. Learning about his heritage gave him a sense of pride I hadn't seen before.",
-                  name: 'Latoya W.',
-                  title: 'Mother of 11-year-old',
-                  avatar: '/testimonial-avatar-3.jpg',
-                },
-              ].map((t, i) => (
-                <div
-                  key={i}
-                  className="flex-shrink-0 w-[320px] liquid-glass p-6 hover:scale-[1.02] hover:border-glassHighlight transition-all duration-300"
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <img
-                      src={t.avatar}
-                      alt={t.name}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                    <div>
-                      <p className="font-body font-semibold text-white text-sm">{t.name}</p>
-                      <p className="text-xs text-mediumGray">{t.title}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-0.5 mb-3">
-                    {[...Array(5)].map((_, j) => (
-                      <Star key={j} className="w-3 h-3 fill-heritageGold text-heritageGold" />
-                    ))}
-                  </div>
-                  <p className="text-sm text-lightSilver leading-relaxed">"{t.quote}"</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* ============================================================
           SECTION 8: PRICING

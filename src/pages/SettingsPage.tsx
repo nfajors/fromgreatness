@@ -78,12 +78,16 @@ export default function SettingsPage() {
     memberSince: user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'January 2025',
   });
 
-  // Students state
-  const [students, setStudents] = useState<Student[]>([
-    { id: 1, name: 'Maya Thompson', age: 11, grade: '5th Grade', avatar: '/testimonial-avatar-1.jpg', progress: 68, lastActive: 'Today' },
-    { id: 2, name: 'Jordan Thompson', age: 9, grade: '3rd Grade', avatar: '/testimonial-avatar-3.jpg', progress: 42, lastActive: 'Yesterday' },
-    { id: 3, name: 'Zara Thompson', age: 13, grade: '7th Grade', avatar: '/child-learning.jpg', progress: 85, lastActive: 'Today' },
-  ]);
+  // Students — derived from the real database list for this parent.
+  const students: Student[] = (studentsList ?? []).map((s) => ({
+    id: s.id,
+    name: s.fullName,
+    age: s.age,
+    grade: s.grade,
+    avatar: s.avatarUrl || '/child-learning.jpg',
+    progress: 0,
+    lastActive: '—',
+  }));
 
   const navigateTo = (screen: SubScreen) => {
     setSubScreen(screen);
@@ -97,14 +101,17 @@ export default function SettingsPage() {
     setProfile((prev) => ({ ...prev, ...updated }));
   };
 
-  const handleAddStudent = (student: { name: string; age: number; grade: string; avatar: string }) => {
-    const newStudent: Student = {
-      ...student,
-      id: Date.now(),
-      progress: 0,
-      lastActive: 'Today',
-    };
-    setStudents((prev) => [...prev, newStudent]);
+  const createStudent = trpc.student.create.useMutation();
+  const utils = trpc.useUtils();
+
+  const handleAddStudent = async (student: { name: string; age: number; grade: string; avatar: string }) => {
+    await createStudent.mutateAsync({
+      fullName: student.name,
+      age: student.age,
+      grade: student.grade,
+      avatarUrl: student.avatar,
+    });
+    await utils.student.list.invalidate();
   };
 
   // Render sub-screens
