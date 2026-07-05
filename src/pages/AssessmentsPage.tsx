@@ -24,10 +24,16 @@ export default function AssessmentsPage() {
     cultural: {},
   });
 
+  // Resolve the active student. selectedStudentId (in-memory) resets on refresh
+  // and isn't always set during onboarding, so fall back to the parent's first
+  // child from the database. This is the fix for completions silently no-oping.
+  const { data: studentsList } = trpc.student.list.useQuery();
+  const activeStudentId = selectedStudentId ?? studentsList?.[0]?.id ?? null;
+
   // Load assessments from backend
   const { data: dbAssessments } = trpc.assessment.listByStudent.useQuery(
-    { studentId: selectedStudentId ?? 0 },
-    { enabled: !!selectedStudentId }
+    { studentId: activeStudentId ?? 0 },
+    { enabled: !!activeStudentId }
   );
 
   // Create assessment mutation
@@ -44,11 +50,11 @@ export default function AssessmentsPage() {
     key: 'personality' | 'achievement' | 'cultural',
     payload: { responses: Record<string, unknown>; score?: number; traits?: string[] },
   ) => {
-    if (!selectedStudentId) return;
+    if (!activeStudentId) return;
     const type = dbType(key);
     // Ensure the record exists (create if the user never triggered start).
     const record = await getOrCreate.mutateAsync({
-      studentId: selectedStudentId,
+      studentId: activeStudentId,
       type,
     });
     if (!record) return;
@@ -59,7 +65,7 @@ export default function AssessmentsPage() {
       traits: payload.traits,
     });
     // Refresh so status flips to completed and the next test unlocks.
-    await utils.assessment.listByStudent.invalidate({ studentId: selectedStudentId });
+    await utils.assessment.listByStudent.invalidate({ studentId: activeStudentId });
   };
 
   // Derive statuses from DB
@@ -89,12 +95,12 @@ export default function AssessmentsPage() {
   };
 
   const handleStart = async (id: string) => {
-    if (selectedStudentId) {
+    if (activeStudentId) {
       await getOrCreate.mutateAsync({
-        studentId: selectedStudentId,
+        studentId: activeStudentId,
         type: dbType(id),
       });
-      await utils.assessment.listByStudent.invalidate({ studentId: selectedStudentId });
+      await utils.assessment.listByStudent.invalidate({ studentId: activeStudentId });
     }
     setView(id as AssessmentView);
   };

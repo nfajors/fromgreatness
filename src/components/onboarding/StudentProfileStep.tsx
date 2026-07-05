@@ -84,7 +84,31 @@ export default function StudentProfileStep({ onContinue, onBack, onCreateStudent
     multiple: false,
   });
 
-  const canContinue = firstName.trim() && month && day && year && grade;
+  const hasBirthDate = !!(month && day && year);
+
+  // Accurate age from full birth date (accounts for whether the birthday has
+  // occurred yet this year), not a naive year subtraction.
+  const computedAge = (() => {
+    if (!hasBirthDate) return null;
+    const birth = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+    if (Number.isNaN(birth.getTime())) return null;
+    const now = new Date();
+    let age = now.getFullYear() - birth.getFullYear();
+    const monthDiff = now.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  })();
+
+  const ageInRange = computedAge !== null && computedAge >= 8 && computedAge <= 15;
+  const ageError =
+    hasBirthDate && computedAge !== null && !ageInRange
+      ? `fromGreatness is designed for children ages 8–15 (this birth date is age ${computedAge}). Please check the birth year.`
+      : null;
+
+  const canContinue =
+    !!firstName.trim() && !!month && !!day && !!year && !!grade && ageInRange;
 
   return (
     <motion.div
@@ -200,9 +224,12 @@ export default function StudentProfileStep({ onContinue, onBack, onCreateStudent
             })}
           </select>
         </div>
+        {ageError && (
+          <p className="text-xs text-softRed mt-2" role="alert">
+            {ageError}
+          </p>
+        )}
       </motion.div>
-
-      {/* Grade Level */}
       <motion.div className="mb-6" variants={itemVariants}>
         <label className="section-label block mb-2">Grade Level *</label>
         <select
@@ -282,17 +309,15 @@ export default function StudentProfileStep({ onContinue, onBack, onCreateStudent
         <motion.button
           type="button"
           onClick={() => {
-            if (onCreateStudent) {
-              const birthYear = parseInt(year);
-              const age = new Date().getFullYear() - birthYear;
+            if (onCreateStudent && computedAge !== null && ageInRange) {
               onCreateStudent({
                 fullName: `${firstName} ${lastName}`.trim(),
-                age: Math.max(8, Math.min(15, age)),
+                age: computedAge,
                 grade,
                 interests: selectedInterests,
               });
+              onContinue();
             }
-            onContinue();
           }}
           disabled={!canContinue || isCreating}
           className={cn(

@@ -10,6 +10,7 @@ import {
 import AppShell from '@/components/AppShell';
 import { trpc } from '@/providers/trpc';
 import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 /* ─── easing token ─── */
 const easeOutExpo = [0.16, 1, 0.3, 1] as [number, number, number, number];
@@ -188,6 +189,7 @@ const familyMembers = [
    ─── PAGE COMPONENT ───
    ═══════════════════════════════════════════════════════════ */
 export default function ParentDashboardPage() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { data: studentsList } = trpc.student.list.useQuery();
   const firstStudentId = studentsList?.[0]?.id;
@@ -601,15 +603,15 @@ export default function ParentDashboardPage() {
         >
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-body text-lg font-semibold text-white">Your Family</h3>
-            <button className="flex items-center gap-1 text-xs text-mediumGray hover:text-lightSilver transition-colors">
+            <button onClick={() => navigate('/settings')} className="flex items-center gap-1 text-xs text-mediumGray hover:text-lightSilver transition-colors">
               <Plus className="w-3.5 h-3.5" />
               Add Child
             </button>
           </div>
-          <div className="flex gap-3">
-            {familyMembers.map((member, i) => (
+          <div className="flex gap-3 flex-wrap">
+            {(studentsList ?? []).map((member, i) => (
               <motion.div
-                key={member.name}
+                key={member.id}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.85 + i * 0.08, duration: 0.4, ease: easeOutExpo }}
@@ -622,18 +624,21 @@ export default function ParentDashboardPage() {
               >
                 <div className="relative">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-vibrantGreen to-accentBlue flex items-center justify-center">
-                    <span className="text-base font-bold text-white">{member.name[0]}</span>
+                    <span className="text-base font-bold text-white">{member.fullName[0]}</span>
                   </div>
                   <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-vibrantGreen border-2 border-baseDark" />
                 </div>
-                <span className="text-xs text-lightSilver font-medium">{member.name}</span>
+                <span className="text-xs text-lightSilver font-medium">
+                  {member.fullName.split(/\s+/)[0]}
+                </span>
                 <span className="text-[10px] text-mediumGray">Age {member.age}</span>
-                <span className="text-[9px] text-mutedSlate">{member.progress}</span>
+                <span className="text-[9px] text-mutedSlate">{member.grade}</span>
               </motion.div>
             ))}
 
-            {/* Add child card */}
+            {/* Add child card → routes to Settings where the add flow lives */}
             <motion.button
+              onClick={() => navigate('/settings')}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.93, duration: 0.4, ease: easeOutExpo }}
