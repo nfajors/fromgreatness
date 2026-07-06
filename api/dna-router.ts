@@ -4,6 +4,7 @@ import { getDb } from "./queries/connection";
 import { dnaResults } from "@db/schema";
 import { eq } from "drizzle-orm";
 import { parseDnaFile } from "./lib/dna-parser";
+import { recordActivity, checkAndAwardAchievements } from "./lib/gamification";
 
 export const dnaRouter = createRouter({
   getByStudent: authedQuery
@@ -65,6 +66,14 @@ export const dnaRouter = createRouter({
           haplogroups: input.haplogroups as Record<string, string> | null,
         });
       const id = Number(result[0].insertId);
+      // Gamification: heritage confirmation is a milestone.
+      await recordActivity({
+        studentId: input.studentId,
+        type: "heritage_confirmed",
+        title: "Heritage confirmed",
+        subtitle: input.primaryRegion ? `Primary: ${input.primaryRegion}` : undefined,
+      }).catch(() => {});
+      await checkAndAwardAchievements(input.studentId).catch(() => {});
       return getDb().query.dnaResults.findFirst({
         where: eq(dnaResults.id, id),
       });

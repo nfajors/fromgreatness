@@ -5,9 +5,10 @@ import {
   Play, Lock, Check, X, ArrowRight, Trophy,
   BookOpen, Globe, ChefHat, Shirt, Footprints,
   MessageCircle, Video,
-  Target, Zap,
+  Target, Zap, Brain, GraduationCap, Sparkles,
 } from 'lucide-react';
 import AppShell from '@/components/AppShell';
+import { trpc } from '@/providers/trpc';
 
 /* ═══════════════════════════════════════════════
    CONSTANTS & TYPES
@@ -170,14 +171,32 @@ function ConfettiBurst({ particles }: { particles: Particle[] }) {
    MAIN PAGE
    ═══════════════════════════════════════════════ */
 export default function LearnPage() {
+  /* ── real gamification data ── */
+  const { data: studentsList } = trpc.student.list.useQuery();
+  const learnStudentId = studentsList?.[0]?.id;
+  const { data: gameSummary } = trpc.activity.summary.useQuery(
+    { studentId: learnStudentId ?? 0 },
+    { enabled: !!learnStudentId },
+  );
+  const { data: realAchievements } = trpc.achievement.getByStudent.useQuery(
+    { studentId: learnStudentId ?? 0 },
+    { enabled: !!learnStudentId },
+  );
+
   /* ── core state ── */
   const [greeting] = useState(() => getGreeting());
-  const [coinBalance, setCoinBalance] = useState(350);
-  const streak = 12;
+  const [bonusCoins, setBonusCoins] = useState(0);
+  const coinBalance = (gameSummary?.coins ?? 0) + bonusCoins;
+  const setCoinBalance = (fn: (p: number) => number) => setBonusCoins((b) => fn(b));
+  const streak = gameSummary?.streakDays ?? 0;
   const [dailyProgress, setDailyProgress] = useState(1); // 1 of 2 modules done
   const dailyGoal = 2;
-  const [xp] = useState(1250);
-  const [level] = useState({ num: 5, title: 'Culture Explorer', nextXP: 1500 });
+  const xp = gameSummary?.xp ?? 0;
+  const level = {
+    num: gameSummary?.level?.num ?? 1,
+    title: gameSummary?.level?.title ?? 'Seedling',
+    nextXP: gameSummary?.level?.nextLevelXp ?? 250,
+  };
   const [expandedModule, setExpandedModule] = useState<number | null>(null);
 
   /* ── lesson player state ── */
@@ -253,6 +272,25 @@ export default function LearnPage() {
 
   /* ── xp bar percentage ── */
   const xpPercent = Math.min(100, (xp / level.nextXP) * 100);
+
+  /* ── real achievements mapped to display shape ── */
+  const achIconMap: Record<string, typeof BookOpen> = {
+    footprints: Footprints,
+    brain: Brain,
+    dna: Sparkles,
+    'book-open': BookOpen,
+    library: BookOpen,
+    'graduation-cap': GraduationCap,
+    flame: Flame,
+  };
+  const achColors = ['#00C853', '#7E57C2', '#D4AF37', '#F59E0B', '#38BDF8', '#F8BBD0'];
+  const displayAchievements = (realAchievements ?? []).map((a, i) => ({
+    id: a.id,
+    name: a.name,
+    icon: achIconMap[a.icon] ?? Trophy,
+    unlocked: a.earned,
+    color: achColors[i % achColors.length],
+  }));
 
   /* ═══════════════════════════════════════════
      RENDER
@@ -481,11 +519,11 @@ export default function LearnPage() {
         >
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-body text-base font-semibold text-white">Your Achievements</h3>
-            <span className="text-xs text-mediumGray">{achievements.filter(a => a.unlocked).length} of {achievements.length} earned</span>
+            <span className="text-xs text-mediumGray">{displayAchievements.filter(a => a.unlocked).length} of {displayAchievements.length} earned</span>
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            {achievements.map((badge, i) => {
+            {displayAchievements.map((badge, i) => {
               const Icon = badge.icon;
               return (
                 <motion.div

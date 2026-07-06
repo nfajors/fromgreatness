@@ -190,6 +190,7 @@ const familyMembers = [
    ═══════════════════════════════════════════════════════════ */
 export default function ParentDashboardPage() {
   const navigate = useNavigate();
+  const utils = trpc.useUtils();
   const { user } = useAuth();
   const { data: studentsList } = trpc.student.list.useQuery();
   const firstStudentId = studentsList?.[0]?.id;
@@ -198,25 +199,72 @@ export default function ParentDashboardPage() {
     { enabled: !!firstStudentId },
   );
 
+  // Real gamification summary + activity feed.
+  const { data: gameSummary } = trpc.activity.summary.useQuery(
+    { studentId: firstStudentId ?? 0 },
+    { enabled: !!firstStudentId },
+  );
+  const { data: activityFeed } = trpc.activity.listByStudent.useQuery(
+    { studentId: firstStudentId ?? 0, limit: 20 },
+    { enabled: !!firstStudentId },
+  );
+  const markAllReadMutation = trpc.activity.markAllRead.useMutation();
+
   const parentFirstName = (user?.name?.trim().split(/\s+/)[0]) || 'there';
   const primaryChild = studentsList?.[0];
 
   // Real stats: modules completed out of total for this child. Streak / weekly
-  // goal have no backend yet, so we don't fabricate them.
+  // goal now come from the gamification summary (no more fabricated values).
   const modulesDone = realStats?.overall?.completedModules ?? 0;
   const modulesTotal = realStats?.overall?.totalModules ?? 0;
+  const streakDays = gameSummary?.streakDays ?? 0;
+  const weeklyPct = gameSummary?.weeklyGoalPct ?? 0;
+  const coins = gameSummary?.coins ?? 0;
+
+  // Map DB activity rows into the feed item shape the UI renders.
+  const iconForType: Record<string, { icon: typeof CheckCircle; bg: string; color: string; border: string }> = {
+    assessment_completed: { icon: CheckCircle, bg: 'rgba(0,200,83,0.12)', color: '#00C853', border: '#00C853' },
+    module_completed: { icon: BookOpen, bg: 'rgba(56,189,248,0.12)', color: '#38BDF8', border: '#38BDF8' },
+    lesson_completed: { icon: BookOpen, bg: 'rgba(56,189,248,0.12)', color: '#38BDF8', border: '#38BDF8' },
+    achievement_earned: { icon: Trophy, bg: 'rgba(245,158,11,0.12)', color: '#F59E0B', border: '#F59E0B' },
+    heritage_confirmed: { icon: Target, bg: 'rgba(126,87,194,0.12)', color: '#7E57C2', border: '#7E57C2' },
+    plan_generated: { icon: Target, bg: 'rgba(126,87,194,0.12)', color: '#7E57C2', border: '#7E57C2' },
+    streak_milestone: { icon: Flame, bg: 'rgba(245,158,11,0.12)', color: '#F59E0B', border: '#F59E0B' },
+  };
+
+  function timeAgo(d: Date | string): string {
+    const then = typeof d === 'string' ? new Date(d) : d;
+    const mins = Math.floor((Date.now() - then.getTime()) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  }
+
+  const activityItems: ActivityItem[] = (activityFeed ?? []).map((a) => {
+    const style = iconForType[a.type] ?? iconForType.module_completed;
+    return {
+      id: a.id,
+      title: a.title,
+      subtitle: a.subtitle ?? (a.coinsAwarded > 0 ? `+${a.coinsAwarded} coins` : ''),
+      time: timeAgo(a.createdAt),
+      icon: style.icon,
+      iconBg: style.bg,
+      iconColor: style.color,
+      borderColor: style.border,
+      unread: !a.read,
+    };
+  });
+  const unreadCount = activityItems.filter((a) => a.unread).length;
 
   const [greeting] = useState(() => getGreeting());
   const [currentDate] = useState(() => formatDate());
   const [intensity, setIntensity] = useState<Intensity>('medium');
   const [toast, setToast] = useState<string | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<PendingVideo | null>(null);
-  // Activity feed and video-review queue have no backend yet — start empty
-  // rather than showing fabricated events.
-  const [activityItems, setActivityItems] = useState<ActivityItem[]>([]);
   const [videoExpanded, setVideoExpanded] = useState(true);
   const [videoList, setVideoList] = useState<PendingVideo[]>([]);
-  const unreadCount = activityItems.filter((a) => a.unread).length;
 
   /* ── helpers ── */
   const showToast = useCallback((msg: string) => {
@@ -236,9 +284,17 @@ export default function ParentDashboardPage() {
   }, [showToast]);
 
   const markAllRead = useCallback(() => {
-    setActivityItems(prev => prev.map(a => ({ ...a, unread: false })));
-    showToast('All activities marked as read');
-  }, [showToast]);
+    if (!firstStudentId) return;
+    markAllReadMutation.mutate(
+      { studentId: firstStudentId },
+      {
+        onSuccess: () => {
+          utils.activity.listByStudent.invalidate({ studentId: firstStudentId });
+          showToast('All activities marked as read');
+        },
+      },
+    );
+  }, [firstStudentId, markAllReadMutation, utils, showToast]);
 
   /* ── intensity labels ── */
   const intensityMap: Record<Intensity, string> = { low: 'Low', medium: 'Medium', high: 'High' };
@@ -279,11 +335,32 @@ export default function ParentDashboardPage() {
         >
           {[
             {
+              label: 'Day Streak',
+              value: `${streakDays}`,
+              sub: streakDays === 1 ? 'day' : 'days',
+              icon: Flame,
+              color: '#F59E0B',
+            },
+            {
               label: 'Modules Done',
               value: `${modulesDone} of ${modulesTotal}`,
               sub: modulesTotal > 0 ? 'completed' : 'no plan yet',
-              icon: stats[1].icon,
-              color: stats[1].color,
+              icon: Trophy,
+              color: '#00C853',
+            },
+            {
+              label: 'Weekly Goal',
+              value: `${weeklyPct}%`,
+              sub: `${gameSummary?.weeklyModules ?? 0} of ${gameSummary?.weeklyGoal ?? 5}`,
+              icon: Target,
+              color: '#38BDF8',
+            },
+            {
+              label: 'Coins',
+              value: `${coins}`,
+              sub: 'earned',
+              icon: Coins,
+              color: '#D4AF37',
             },
             {
               label: 'Child',

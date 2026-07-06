@@ -8,6 +8,13 @@
       "when": 1780099490115,
       "tag": "0000_dry_sebastian_shaw",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1783379481541,
+      "tag": "0001_bitter_red_hulk",
+      "breakpoints": true
     }
   ]
 }

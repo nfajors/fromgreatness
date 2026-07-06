@@ -5,6 +5,7 @@ import { assessments, dnaResults, students } from "@db/schema";
 import { eq, and } from "drizzle-orm";
 import { aiEnabled } from "./lib/env";
 import { generateQuestionsWithAI, type GenQuestion } from "./lib/ai-content";
+import { recordActivity, checkAndAwardAchievements } from "./lib/gamification";
 
 export const assessmentRouter = createRouter({
   // ─── DNA-driven question generation for heritage tests ───
@@ -117,9 +118,27 @@ export const assessmentRouter = createRouter({
           completedAt: new Date(),
         })
         .where(eq(assessments.id, input.id));
-      return getDb().query.assessments.findFirst({
+      const updated = await getDb().query.assessments.findFirst({
         where: eq(assessments.id, input.id),
       });
+
+      // Gamification: log the completion and award any newly met achievements.
+      if (updated) {
+        const label =
+          updated.type === "personality"
+            ? "Personality Test"
+            : updated.type === "achievement"
+              ? "Achievement Test"
+              : "Cultural Identity Test";
+        await recordActivity({
+          studentId: updated.studentId,
+          type: "assessment_completed",
+          title: `Completed the ${label}`,
+          subtitle: input.score != null ? `Score: ${input.score}%` : undefined,
+        }).catch(() => {});
+        await checkAndAwardAchievements(updated.studentId).catch(() => {});
+      }
+      return updated;
     }),
 
   updateStatus: authedQuery

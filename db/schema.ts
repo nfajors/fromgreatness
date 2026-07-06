@@ -290,3 +290,28 @@ export const subscriptions = mysqlTable("subscriptions", {
 
 export type Subscription = typeof subscriptions.$inferSelect;
 export type InsertSubscription = typeof subscriptions.$inferInsert;
+
+// ─── Activity Feed ───
+export const activities = mysqlTable("activities", {
+  id: serial("id").primaryKey(),
+  studentId: bigint("studentId", { mode: "number", unsigned: true }).notNull(),
+  type: mysqlEnum("type", [
+    "assessment_completed",
+    "module_completed",
+    "lesson_completed",
+    "achievement_earned",
+    "heritage_confirmed",
+    "plan_generated",
+    "streak_milestone",
+  ]).notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  subtitle: varchar("subtitle", { length: 500 }),
+  coinsAwarded: int("coinsAwarded").default(0).notNull(),
+  read: boolean("read").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => [
+  index("act_studentId_idx").on(table.studentId),
+]);
+
+export type Activity = typeof activities.$inferSelect;
+export type InsertActivity = typeof activities.$inferInsert;

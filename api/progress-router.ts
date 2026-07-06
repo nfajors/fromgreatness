@@ -3,6 +3,7 @@ import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { moduleProgress, studyModules } from "@db/schema";
 import { eq, and } from "drizzle-orm";
+import { recordActivity, checkAndAwardAchievements } from "./lib/gamification";
 
 export const progressRouter = createRouter({
   getByStudent: authedQuery
@@ -81,6 +82,29 @@ export const progressRouter = createRouter({
             completedAt: isCompleted ? new Date() : existing.completedAt,
           })
           .where(eq(moduleProgress.id, existing.id));
+
+        // Gamification: on the transition to completed, log it, grant a base
+        // coin bounty if none was provided, and evaluate achievements.
+        if (isCompleted && !existing.completedAt) {
+          const bounty = input.coinsEarned ?? 0;
+          if (bounty === 0) {
+            await getDb()
+              .update(moduleProgress)
+              .set({ coinsEarned: existing.coinsEarned + 20 })
+              .where(eq(moduleProgress.id, existing.id));
+          }
+          const mod = await getDb().query.studyModules.findFirst({
+            where: eq(studyModules.id, input.moduleId),
+          });
+          await recordActivity({
+            studentId: input.studentId,
+            type: "module_completed",
+            title: mod ? `Completed '${mod.title}'` : "Completed a learning module",
+            subtitle: mod ? `${mod.domain} domain` : undefined,
+            coinsAwarded: bounty || 20,
+          }).catch(() => {});
+          await checkAndAwardAchievements(input.studentId).catch(() => {});
+        }
 
         return getDb().query.moduleProgress.findFirst({
           where: eq(moduleProgress.id, existing.id),
