@@ -1,7 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, CheckCircle2, X, Trophy, Zap } from 'lucide-react';
-import { achievementQuestions } from './data';
+import { achievementQuestions as staticAchievementQuestions } from './data';
+import type { AchievementQuestion } from './data';
 import CountUp from 'react-countup';
 
 interface AchievementTestProps {
@@ -9,6 +10,7 @@ interface AchievementTestProps {
   onExit: () => void;
   savedAnswers?: Record<number, number>;
   onSave: (answers: Record<number, number>) => void;
+  questions?: AchievementQuestion[];
 }
 
 const easeOutExpo = [0.16, 1, 0.3, 1] as [number, number, number, number];
@@ -18,9 +20,11 @@ const domainColors: Record<string, string> = {
   Language: '#7E57C2',
   Food: '#F59E0B',
   Dress: '#F8BBD0',
+  Identity: '#38BDF8',
 };
 
-export default function AchievementTest({ onComplete, onExit, savedAnswers = {}, onSave }: AchievementTestProps) {
+export default function AchievementTest({ onComplete, onExit, savedAnswers = {}, onSave, questions }: AchievementTestProps) {
+  const achievementQuestions = questions && questions.length > 0 ? questions : staticAchievementQuestions;
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>(savedAnswers);
   const [direction, setDirection] = useState(1);
@@ -30,18 +34,25 @@ export default function AchievementTest({ onComplete, onExit, savedAnswers = {},
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('easy');
   const [showLevelUp, setShowLevelUp] = useState(false);
 
-  // Adaptive filtering: select questions based on difficulty
-  const availableQuestions = achievementQuestions.filter(q => {
-    if (difficulty === 'easy') return q.difficulty === 'easy';
-    if (difficulty === 'medium') return q.difficulty !== 'hard';
-    return true;
-  });
+  // Build a STABLE sequence of unique questions once, ordered easy→medium→hard.
+  // This fixes two bugs: (1) questions repeating (old code looped a small
+  // per-difficulty pool with `% length`), and (2) a different question flashing
+  // when difficulty changed mid-test (the active list used to change on each
+  // answer). The sequence no longer depends on the live `difficulty` state.
+  const orderedQuestions = useMemo(() => {
+    const byDifficulty = (d: string) => achievementQuestions.filter(q => q.difficulty === d);
+    const seq = [...byDifficulty('easy'), ...byDifficulty('medium'), ...byDifficulty('hard')];
+    const pool = seq.length > 0 ? seq : achievementQuestions;
+    // De-duplicate by id and cap at 25 unique questions.
+    const seen = new Set<number>();
+    const unique = pool.filter(q => (seen.has(q.id) ? false : (seen.add(q.id), true)));
+    return unique.slice(0, 25);
+  }, [achievementQuestions]);
 
-  // Ensure we always have questions to show
-  const activeQuestions = availableQuestions.length > 0 ? availableQuestions : achievementQuestions;
-  const question = activeQuestions[currentQ % activeQuestions.length];
-  const totalQuestions = 25;
-  const progress = ((currentQ + 1) / totalQuestions) * 100;
+  const activeQuestions = orderedQuestions;
+  const question = activeQuestions[currentQ];
+  const totalQuestions = activeQuestions.length;
+  const progress = totalQuestions > 0 ? ((currentQ + 1) / totalQuestions) * 100 : 0;
 
   const handleAnswer = useCallback((optionIndex: number) => {
     if (feedback || !question) return;

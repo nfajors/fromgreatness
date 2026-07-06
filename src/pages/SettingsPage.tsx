@@ -74,7 +74,7 @@ export default function SettingsPage() {
     name: user?.name || 'Parent Account',
     email: user?.email || '',
     phone: '',
-    avatar: user?.avatar || '/testimonial-avatar-1.jpg',
+    avatar: user?.avatar || '',
     memberSince: user?.createdAt ? new Date(user.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'January 2025',
   });
 

@@ -25,6 +25,9 @@ export default function CulturalIdentityTest({ onComplete, onExit, savedAnswers 
   const [textDraft, setTextDraft] = useState('');
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const livePreviewRef = useRef<HTMLVideoElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   const question = culturalQuestions[currentQ];
   const totalQuestions = culturalQuestions.length;
@@ -123,26 +126,53 @@ export default function CulturalIdentityTest({ onComplete, onExit, savedAnswers 
   };
 
   const startRecording = async () => {
+    setCameraError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      streamRef.current = stream;
+
+      // Show the live camera feed so the user sees themselves while recording.
+      if (livePreviewRef.current) {
+        livePreviewRef.current.srcObject = stream;
+        livePreviewRef.current.muted = true;
+        await livePreviewRef.current.play().catch(() => {});
+      }
+
       const recorder = new MediaRecorder(stream);
       const chunks: Blob[] = [];
-      recorder.ondataavailable = (e) => chunks.push(e.data);
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
       recorder.onstop = () => {
         const blob = new Blob(chunks, { type: 'video/webm' });
         setVideoBlob(URL.createObjectURL(blob));
         stream.getTracks().forEach(t => t.stop());
+        streamRef.current = null;
       };
       recorder.start();
       mediaRecorderRef.current = recorder;
       setVideoPhase('recording');
       setRecordingTime(0);
-    } catch {
-      // Fallback: simulate recording
-      setVideoPhase('recording');
-      setRecordingTime(0);
+    } catch (err) {
+      // Honest failure: tell the user the camera couldn't start instead of
+      // silently "simulating" a recording (which produced audio-only/black video).
+      const name = err instanceof Error ? err.name : '';
+      setCameraError(
+        name === 'NotAllowedError'
+          ? 'Camera access was blocked. Please allow camera and microphone permissions in your browser, then try again.'
+          : name === 'NotFoundError'
+            ? 'No camera was found on this device. You can skip the video or type your response instead.'
+            : 'We couldn\u2019t start the camera. Check permissions and that no other app is using it, then try again.',
+      );
+      setVideoPhase('idle');
     }
   };
+
+  // Keep the live preview wired if the element mounts after the stream starts.
+  useEffect(() => {
+    if (videoPhase === 'recording' && livePreviewRef.current && streamRef.current) {
+      livePreviewRef.current.srcObject = streamRef.current;
+      livePreviewRef.current.play().catch(() => {});
+    }
+  }, [videoPhase]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -299,11 +329,15 @@ export default function CulturalIdentityTest({ onComplete, onExit, savedAnswers 
                 className="w-full aspect-[3/4] max-h-[320px] rounded-2xl bg-[#1E293B] border-2 border-[#F87171] flex flex-col items-center justify-center relative overflow-hidden"
                 style={{ animation: 'glow-pulse 2s ease-in-out infinite' }}
               >
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="w-4 h-4 rounded-full bg-[#F87171] animate-ping absolute" />
-                  <div className="w-3 h-3 rounded-full bg-[#F87171]" />
-                </div>
-                <div className="absolute top-4 left-4 bg-[rgba(248,113,113,0.2)] px-3 py-1 rounded-full flex items-center gap-2">
+                {/* Live camera feed so the user sees themselves while recording */}
+                <video
+                  ref={livePreviewRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="absolute inset-0 w-full h-full object-cover"
+                />
+                <div className="absolute top-4 left-4 bg-[rgba(248,113,113,0.2)] px-3 py-1 rounded-full flex items-center gap-2 z-10">
                   <div className="w-2 h-2 rounded-full bg-[#F87171] animate-pulse" />
                   <span className="text-sm font-mono text-[#F87171]">{formatTime(recordingTime)}</span>
                 </div>
@@ -329,6 +363,11 @@ export default function CulturalIdentityTest({ onComplete, onExit, savedAnswers 
               </motion.div>
             )}
           </AnimatePresence>
+          {cameraError && (
+            <p className="text-xs text-[#F87171] mt-3 text-center px-4" role="alert">
+              {cameraError}
+            </p>
+          )}
         </div>
 
         {/* Controls */}
@@ -475,7 +514,7 @@ export default function CulturalIdentityTest({ onComplete, onExit, savedAnswers 
             {question.type === 'rating' && (
               <div className="flex-1 flex flex-col">
                 <div className="flex-1 flex flex-col justify-center">
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-center gap-2">
                     {question.options?.map((val) => {
                       const numVal = Number(val);
                       const isSelected = (answers[question.id] as number) >= numVal;
@@ -484,10 +523,10 @@ export default function CulturalIdentityTest({ onComplete, onExit, savedAnswers 
                           key={val}
                           whileTap={{ scale: 0.9 }}
                           onClick={() => handleRatingAnswer(numVal)}
-                          className="flex flex-col items-center gap-2"
+                          className="flex flex-col items-center"
                         >
                           <div
-                            className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-semibold transition-all duration-200 ${
+                            className={`w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-semibold transition-all duration-200 ${
                               isSelected
                                 ? 'border-[#00C853] bg-[rgba(0,200,83,0.15)] text-[#00C853]'
                                 : 'border-[rgba(255,255,255,0.1)] text-[#64748B]'

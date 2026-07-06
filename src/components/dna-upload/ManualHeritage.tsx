@@ -60,7 +60,7 @@ export default function ManualHeritage({ onSave, onClose }: ManualHeritageProps)
             Tell Us About Your Family&apos;s Heritage
           </h3>
           <p className="text-xs text-[#64748B] mb-5">
-            Select the regions your family identifies with. This helps us curate relevant content.
+            Select <span className="text-vibrantGreen">all</span> the regions your family identifies with — pick as many as apply. Many families have heritage from several regions.
           </p>
 
           {/* Region Grid */}
@@ -105,20 +105,25 @@ export default function ManualHeritage({ onSave, onClose }: ManualHeritageProps)
             />
           </div>
 
-          {/* Confidence Slider */}
+          {/* Confidence Selector */}
           <div className="mb-6">
             <label className="text-xs text-[#64748B] mb-3 block">
               How sure are you about these regions?
             </label>
-            <div className="flex items-center gap-2 mb-2">
+            <div className="grid grid-cols-5 gap-2 mb-2">
               {[1, 2, 3, 4, 5].map(val => (
                 <button
                   key={val}
+                  type="button"
                   onClick={() => setConfidence(val)}
-                  className={`flex-1 h-2 rounded-full transition-all duration-200 ${
-                    val <= confidence ? 'bg-[#00C853]' : 'bg-[#1E293B]'
+                  className={`h-10 rounded-lg border text-sm font-medium transition-all duration-200 ${
+                    val <= confidence
+                      ? 'bg-[#00C853] border-[#00C853] text-white'
+                      : 'bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.08)] text-[#64748B]'
                   }`}
-                />
+                >
+                  {val}
+                </button>
               ))}
             </div>
             <div className="flex justify-between text-[10px] text-[#64748B]">

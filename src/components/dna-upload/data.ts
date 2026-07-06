@@ -57,12 +57,32 @@ export const providerOptions = [
 ];
 
 export const manualRegions = [
-  { id: 'west-africa', name: 'West Africa', flag: '🇳🇬' },
-  { id: 'central-africa', name: 'Central Africa', flag: '🇨🇲' },
-  { id: 'east-africa', name: 'East Africa', flag: '🇪🇹' },
-  { id: 'southern-africa', name: 'Southern Africa', flag: '🇿🇦' },
-  { id: 'caribbean', name: 'Caribbean', flag: '🇯🇲' },
-  { id: 'afro-latin', name: 'Afro-Latin', flag: '🇧🇷' },
-  { id: 'african-american', name: 'African American / Gullah', flag: '🇺🇸' },
-  { id: 'north-africa', name: 'North Africa', flag: '🇪🇬' },
+  // African heritage & diaspora (the platform's founding focus)
+  { id: 'west-africa', name: 'West Africa', flag: '🌍' },
+  { id: 'central-africa', name: 'Central Africa', flag: '🌍' },
+  { id: 'east-africa', name: 'East Africa', flag: '🌍' },
+  { id: 'southern-africa', name: 'Southern Africa', flag: '🌍' },
+  { id: 'north-africa', name: 'North Africa', flag: '🌍' },
+  { id: 'caribbean', name: 'Caribbean', flag: '🌎' },
+  { id: 'afro-latin', name: 'Afro-Latin', flag: '🌎' },
+  { id: 'african-american', name: 'African American / Gullah', flag: '🌎' },
+  // Europe
+  { id: 'western-europe', name: 'Western Europe', flag: '🌍' },
+  { id: 'eastern-europe', name: 'Eastern Europe', flag: '🌍' },
+  { id: 'british-isles', name: 'British Isles', flag: '🌍' },
+  { id: 'scandinavia', name: 'Scandinavia / Nordic', flag: '🌍' },
+  { id: 'southern-europe', name: 'Southern Europe / Mediterranean', flag: '🌍' },
+  // Middle East & Central Asia
+  { id: 'middle-east', name: 'Middle East', flag: '🌍' },
+  { id: 'central-asia', name: 'Central Asia', flag: '🌏' },
+  // Asia
+  { id: 'south-asia', name: 'South Asia', flag: '🌏' },
+  { id: 'east-asia', name: 'East Asia', flag: '🌏' },
+  { id: 'southeast-asia', name: 'Southeast Asia', flag: '🌏' },
+  // Americas (Indigenous & Latin)
+  { id: 'indigenous-north-america', name: 'Indigenous North America', flag: '🌎' },
+  { id: 'indigenous-latin-america', name: 'Indigenous / Latin America', flag: '🌎' },
+  // Pacific
+  { id: 'pacific-islands', name: 'Pacific Islands / Oceania', flag: '🌏' },
+  { id: 'aboriginal-australia', name: 'Aboriginal Australia', flag: '🌏' },
 ];

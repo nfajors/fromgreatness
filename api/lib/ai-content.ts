@@ -157,3 +157,99 @@ function extractJsonArray(text: string): string {
   }
   return fenced.slice(start, end + 1);
 }
+
+// ─────────────────────────────────────────────────────────────
+//  DNA-driven assessment question generation (core IP)
+//  Generates heritage-specific questions for the Achievement and
+//  Cultural Identity tests, grounded in the child's confirmed
+//  ancestry regions. Falls back to static questions when AI is off.
+// ─────────────────────────────────────────────────────────────
+
+export type GenQuestion = {
+  id: number;
+  text: string;
+  options: string[];
+  correctIndex: number;
+  domain: string;
+  difficulty: "easy" | "medium" | "hard";
+};
+
+export type GenQuestionInput = {
+  test: "achievement" | "cultural_identity";
+  studentAge: number;
+  heritageRegions: Array<{ region: string; percentage?: number }>;
+  count: number;
+};
+
+function buildQuestionPrompt(input: GenQuestionInput): string {
+  const regions = input.heritageRegions
+    .map((r) => (r.percentage != null ? `${r.region} (~${r.percentage}%)` : r.region))
+    .join(", ");
+
+  const testGuidance =
+    input.test === "achievement"
+      ? `an ACHIEVEMENT test that measures what the child already KNOWS about their specific heritage — factual knowledge across history, language, food, and dress of their confirmed ancestry regions. Each question has one clearly correct answer.`
+      : `a CULTURAL IDENTITY test that gauges how connected the child feels to, and how much they engage with, their specific heritage — traditions, language exposure, family practices, and self-identification. Frame options as a spectrum; set correctIndex to the most heritage-connected answer.`;
+
+  return `You are designing questions for fromGreatness, a platform that reconnects young people (ages 8-15) with their genetic heritage.
+
+Design ${input.count} questions for ${testGuidance}
+
+CHILD PROFILE
+- Age: ${input.studentAge}
+- Confirmed heritage regions: ${regions || "unspecified"}
+
+CRITICAL REQUIREMENTS
+- Ground EVERY question in the child's SPECIFIC confirmed regions above. Name real cultures, languages, dishes, garments, kingdoms, and figures from THOSE regions. Do not produce generic "African" or "world" questions if specific regions are known.
+- Be factually accurate. Do NOT rely on stereotypes, caricatures, or clichés. If unsure of a fact, choose a different, verifiable one.
+- Age-appropriate for a ${input.studentAge}-year-old in vocabulary and difficulty.
+- Exactly 4 options per question; exactly one correctIndex (0-3).
+- Vary difficulty: mix "easy", "medium", "hard".
+- Respectful, dignity-affirming tone. This is about pride in heritage, never mockery.
+
+OUTPUT FORMAT
+Respond with ONLY a JSON array (no markdown, no prose):
+[
+  { "text": "string", "options": ["a","b","c","d"], "correctIndex": 0, "domain": "History|Language|Food|Dress|Identity", "difficulty": "easy" }
+]`;
+}
+
+export async function generateQuestionsWithAI(
+  input: GenQuestionInput,
+): Promise<GenQuestion[]> {
+  if (!aiEnabled) throw new Error("AI generation not configured");
+
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": env.anthropicApiKey,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: env.anthropicModel,
+      max_tokens: 4000,
+      messages: [{ role: "user", content: buildQuestionPrompt(input) }],
+    }),
+  });
+
+  if (!resp.ok) {
+    const body = await resp.text();
+    throw new Error(`Anthropic API error (${resp.status}): ${body.slice(0, 300)}`);
+  }
+
+  const data = (await resp.json()) as { content: Array<{ type: string; text?: string }> };
+  const text = data.content.map((c) => (c.type === "text" ? c.text ?? "" : "")).join("").trim();
+  const parsed = JSON.parse(extractJsonArray(text)) as GenQuestion[];
+
+  return parsed
+    .filter((q) => q && typeof q.text === "string" && Array.isArray(q.options) && q.options.length === 4)
+    .map((q, i) => ({
+      id: i + 1,
+      text: String(q.text).slice(0, 500),
+      options: q.options.map((o) => String(o).slice(0, 200)),
+      correctIndex: Number.isInteger(q.correctIndex) && q.correctIndex >= 0 && q.correctIndex <= 3 ? q.correctIndex : 0,
+      domain: String(q.domain || "Identity").slice(0, 40),
+      difficulty: (["easy", "medium", "hard"].includes(q.difficulty) ? q.difficulty : "medium") as GenQuestion["difficulty"],
+    }));
+}

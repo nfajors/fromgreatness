@@ -39,6 +39,11 @@ export default function DnaUploadPage() {
   const { selectedStudentId } = useAppData();
   const utils = trpc.useUtils();
 
+  // Same fallback as assessments: the in-memory selection resets on refresh, so
+  // resolve the parent's first child from the database when it's not set.
+  const { data: studentsList } = trpc.student.list.useQuery();
+  const activeStudentId = selectedStudentId ?? studentsList?.[0]?.id ?? null;
+
   const parseRaw = trpc.dna.parseRaw.useMutation();
   const uploadDna = trpc.dna.upload.useMutation();
 
@@ -120,7 +125,7 @@ export default function DnaUploadPage() {
     });
     setConfirmedRegions(regions);
 
-    if (!selectedStudentId) {
+    if (!activeStudentId) {
       // No student selected (e.g. opened directly) — still show results locally.
       setState('results');
       return;
@@ -129,7 +134,7 @@ export default function DnaUploadPage() {
     setState('saving');
     try {
       await uploadDna.mutateAsync({
-        studentId: selectedStudentId,
+        studentId: activeStudentId,
         provider: selectedFile?.format ?? 'raw',
         rawData: { confidence, notes, markerCount: snpCount },
         ancestrySummary: regions.map((r) => ({
@@ -140,7 +145,7 @@ export default function DnaUploadPage() {
         primaryRegion: regions[0]?.name,
         primaryPercentage: regions[0]?.percentage,
       });
-      await utils.dna.getByStudent.invalidate({ studentId: selectedStudentId });
+      await utils.dna.getByStudent.invalidate({ studentId: activeStudentId });
       setState('results');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save your results.');
@@ -148,7 +153,7 @@ export default function DnaUploadPage() {
     }
   };
 
-  const handleContinue = () => navigate('/gap-analysis');
+  const handleContinue = () => navigate('/assessments');
 
   const resetToSelect = () => {
     setState('select');
@@ -160,9 +165,9 @@ export default function DnaUploadPage() {
 
   const handleBack = () => {
     if (state === 'file_selected') resetToSelect();
-    else if (state === 'results') navigate('/assessments');
+    else if (state === 'results') navigate('/onboarding');
     else if (state === 'confirm') setState('file_selected');
-    else navigate('/assessments');
+    else navigate('/onboarding');
   };
 
   const getTitle = () => {

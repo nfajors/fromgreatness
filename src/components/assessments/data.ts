@@ -44,7 +44,7 @@ export interface AchievementQuestion {
   text: string;
   options: string[];
   correctIndex: number;
-  domain: 'History' | 'Language' | 'Food' | 'Dress';
+  domain: string;
   difficulty: 'easy' | 'medium' | 'hard';
 }
 

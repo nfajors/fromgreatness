@@ -130,4 +130,27 @@ export const authRouter = createRouter({
         .where(eq(users.id, user.id));
       return { success: true };
     }),
+
+  // ─── Update basic profile fields (name, email, avatar) ───
+  updateProfile: authedQuery
+    .input(
+      z.object({
+        name: z.string().min(1).max(255).optional(),
+        email: emailSchema.optional(),
+        avatar: z.string().max(2_000_000).optional(), // data URL or hosted URL
+      }),
+    )
+    .mutation(async ({ input, ctx }) => {
+      const updates: Record<string, unknown> = {};
+      if (input.name !== undefined) updates.name = input.name;
+      if (input.email !== undefined) updates.email = input.email.toLowerCase().trim();
+      if (input.avatar !== undefined) updates.avatar = input.avatar;
+      if (Object.keys(updates).length === 0) return { success: true };
+
+      await getDb()
+        .update(users)
+        .set(updates)
+        .where(eq(users.id, ctx.user.id));
+      return { success: true };
+    }),
 });

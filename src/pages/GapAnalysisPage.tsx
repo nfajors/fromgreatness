@@ -141,21 +141,21 @@ const insights = [
   {
     title: 'Language is Your Biggest Opportunity',
     description:
-      'Ama has minimal exposure to West African languages. Starting with basic greetings and common phrases in Yoruba and Twi could create an immediate sense of connection.',
+      'Your child has minimal exposure to West African languages. Starting with basic greetings and common phrases in Yoruba and Twi could create an immediate sense of connection.',
     priority: 'High' as const,
     type: 'warning' as const,
   },
   {
     title: 'Food Knowledge is a Strength',
     description:
-      'Ama already shows strong familiarity with West African cuisine. We can build on this confidence to explore the cultural significance behind traditional dishes.',
+      'Your child already shows strong familiarity with West African cuisine. We can build on this confidence to explore the cultural significance behind traditional dishes.',
     priority: 'Low' as const,
     type: 'positive' as const,
   },
   {
     title: 'History Gap is Significant',
     description:
-      'While Ama knows about African American history, there is a large gap in pre-colonial West African kingdoms and the transatlantic journey.',
+      'While your child knows about African American history, there is a large gap in pre-colonial West African kingdoms and the transatlantic journey.',
     priority: 'Medium' as const,
     type: 'info' as const,
   },
@@ -171,13 +171,19 @@ const modulePreview = [
 export default function GapAnalysisPage() {
   const navigate = useNavigate();
   const { selectedStudentId, selectedStudentName } = useAppData();
+  const { data: studentsList } = trpc.student.list.useQuery();
+  const activeStudentId = selectedStudentId ?? studentsList?.[0]?.id ?? null;
+  const childName =
+    selectedStudentName ??
+    studentsList?.find((s) => s.id === activeStudentId)?.fullName?.split(/\s+/)[0] ??
+    'your child';
   const { data: existingAnalysis } = trpc.gap.getByStudent.useQuery(
-    { studentId: selectedStudentId ?? 0 },
-    { enabled: !!selectedStudentId }
+    { studentId: activeStudentId ?? 0 },
+    { enabled: !!activeStudentId }
   );
   const { data: dnaData } = trpc.dna.getByStudent.useQuery(
-    { studentId: selectedStudentId ?? 0 },
-    { enabled: !!selectedStudentId }
+    { studentId: activeStudentId ?? 0 },
+    { enabled: !!activeStudentId }
   );
   const generateAnalysis = trpc.gap.generate.useMutation({
     onSuccess: () => {
@@ -192,14 +198,14 @@ export default function GapAnalysisPage() {
   const [showAchievement, setShowAchievement] = useState(false);
 
   const handleViewStudyPlan = async () => {
-    if (!selectedStudentId) {
+    if (!activeStudentId) {
       navigate('/study-plans');
       return;
     }
     setGenerating(true);
     try {
-      await generatePlans.mutateAsync({ studentId: selectedStudentId });
-      await utils.studyPlan.listByStudent.invalidate({ studentId: selectedStudentId });
+      await generatePlans.mutateAsync({ studentId: activeStudentId });
+      await utils.studyPlan.listByStudent.invalidate({ studentId: activeStudentId });
     } catch (err) {
       console.warn('Plan generation failed:', err);
     } finally {
@@ -273,11 +279,11 @@ export default function GapAnalysisPage() {
           </div>
 
           <h1 className="font-display text-[28px] leading-tight text-white mb-2">
-            Discovering Ama&apos;s Hidden Connections
+            Discovering {childName}'s Hidden Connections
           </h1>
           <p className="text-sm text-lightSilver leading-relaxed">
             Based on DNA analysis and assessment results, we found meaningful
-            opportunities to connect Ama with their heritage.
+            opportunities to connect {childName} with their heritage.
           </p>
         </motion.section>
 
@@ -352,7 +358,7 @@ export default function GapAnalysisPage() {
           <div className="flex items-start gap-2 pt-3 border-t border-[rgba(255,255,255,0.06)]">
             <Sparkles className="w-4 h-4 text-vibrantGreen mt-0.5 flex-shrink-0" />
             <p className="text-xs text-lightSilver">
-              Ama scored highest in Food knowledge and lowest in Language
+              {childName} scored highest in Food knowledge and lowest in Language
               fluency.
             </p>
           </div>
@@ -429,7 +435,7 @@ export default function GapAnalysisPage() {
 
           <div className="liquid-glass p-5">
             <h3 className="font-body text-base font-semibold text-white mb-1">
-              Ama&apos;s West African Heritage Plan
+              {childName}'s Heritage Plan
             </h3>
             <p className="text-xs text-mediumGray mb-4">
               12-week adaptive curriculum
@@ -479,7 +485,7 @@ export default function GapAnalysisPage() {
             <div className="flex items-start gap-2 mb-5">
               <Sparkles className="w-4 h-4 text-vibrantGreen mt-0.5 flex-shrink-0" />
               <p className="text-xs text-mediumGray">
-                Content difficulty adjusts based on Ama&apos;s progress and
+                Content difficulty adjusts based on {childName}'s progress and
                 engagement.
               </p>
             </div>

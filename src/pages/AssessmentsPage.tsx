@@ -3,6 +3,7 @@ import { trpc } from '@/providers/trpc';
 import { useAppData } from '@/hooks/useAppData';
 import { useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Dna } from 'lucide-react';
 import AppShell from '@/components/AppShell';
 import AssessmentOverview from '@/components/assessments/AssessmentOverview';
 import PersonalityTest from '@/components/assessments/PersonalityTest';
@@ -10,6 +11,7 @@ import AchievementTest from '@/components/assessments/AchievementTest';
 import CulturalIdentityTest from '@/components/assessments/CulturalIdentityTest';
 import type { AssessmentStatus, AssessmentView } from '@/components/assessments/types';
 import type { AssessmentAnswers } from '@/components/assessments/types';
+import type { AchievementQuestion } from '@/components/assessments/data';
 
 const easeOutExpo = [0.16, 1, 0.3, 1] as [number, number, number, number];
 
@@ -29,6 +31,9 @@ export default function AssessmentsPage() {
   // child from the database. This is the fix for completions silently no-oping.
   const { data: studentsList } = trpc.student.list.useQuery();
   const activeStudentId = selectedStudentId ?? studentsList?.[0]?.id ?? null;
+  const childFirstName =
+    studentsList?.find((s) => s.id === activeStudentId)?.fullName?.split(/\s+/)[0] ??
+    'your child';
 
   // Load assessments from backend
   const { data: dbAssessments } = trpc.assessment.listByStudent.useQuery(
@@ -36,9 +41,23 @@ export default function AssessmentsPage() {
     { enabled: !!activeStudentId }
   );
 
+  // DNA gate: Achievement & Cultural Identity tests are heritage-specific and
+  // require the child's DNA/heritage to be provided first. Personality (learning
+  // style) does not — but per product design, all tests unlock together once DNA
+  // is present.
+  const { data: dnaData } = trpc.dna.getByStudent.useQuery(
+    { studentId: activeStudentId ?? 0 },
+    { enabled: !!activeStudentId }
+  );
+  const hasDna = !!dnaData;
+
   // Create assessment mutation
   const getOrCreate = trpc.assessment.getOrCreate.useMutation();
   const submitAssessment = trpc.assessment.submitResponse.useMutation();
+
+  // DNA-driven question generation for the two heritage tests.
+  const generateQuestions = trpc.assessment.generateQuestions.useMutation();
+  const [achievementQuestions, setAchievementQuestions] = useState<AchievementQuestion[] | undefined>();
 
   // Map a UI assessment key to the DB `type` value.
   const dbType = (key: string): 'personality' | 'achievement' | 'cultural_identity' =>
@@ -101,6 +120,24 @@ export default function AssessmentsPage() {
         type: dbType(id),
       });
       await utils.assessment.listByStudent.invalidate({ studentId: activeStudentId });
+
+      // For the two heritage tests, generate DNA-driven questions (falls back
+      // to the static set inside the test component if generation is unavailable).
+      if (id === 'achievement') {
+        try {
+          const res = await generateQuestions.mutateAsync({
+            studentId: activeStudentId,
+            test: 'achievement',
+            count: 15,
+          });
+          setAchievementQuestions(res.source === 'ai' ? (res.questions as AchievementQuestion[]) : undefined);
+        } catch {
+          setAchievementQuestions(undefined);
+        }
+      }
+      // The Cultural Identity test uses a different question format (ratings,
+      // multiselect, free-text) than the generator currently produces, so it
+      // keeps its static questions for now. Achievement is fully DNA-driven.
     }
     setView(id as AssessmentView);
   };
@@ -178,7 +215,36 @@ export default function AssessmentsPage() {
     >
       <div className="min-h-[100dvh] bg-baseIndigo">
         <AnimatePresence mode="wait">
-          {view === 'overview' && (
+          {view === 'overview' && !hasDna && (
+            <motion.div
+              key="dna-gate"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3, ease: easeOutExpo }}
+              className="px-5 py-10 min-h-[60vh] flex flex-col items-center justify-center text-center"
+            >
+              <div className="w-16 h-16 rounded-full bg-vibrantGreen/10 flex items-center justify-center mb-5">
+                <Dna className="w-8 h-8 text-vibrantGreen" />
+              </div>
+              <h3 className="font-display text-2xl font-semibold text-white mb-2">
+                Heritage information needed first
+              </h3>
+              <p className="text-sm text-lightSilver max-w-sm mb-6">
+                Two of the assessments measure what {childFirstName} already knows about
+                their heritage — so we need their DNA or heritage details before the
+                tests can be personalized. It only takes a minute.
+              </p>
+              <button
+                onClick={() => navigate('/dna-upload')}
+                className="glass-btn px-6"
+              >
+                Add Heritage Information
+              </button>
+            </motion.div>
+          )}
+
+          {view === 'overview' && hasDna && (
             <motion.div
               key="overview"
               initial={{ opacity: 0 }}
@@ -187,7 +253,7 @@ export default function AssessmentsPage() {
               transition={{ duration: 0.3, ease: easeOutExpo }}
             >
               <AssessmentOverview
-                childName="Your Child"
+                childName={childFirstName}
                 statuses={statuses}
                 onStart={handleStart}
               />
@@ -224,6 +290,7 @@ export default function AssessmentsPage() {
                 onExit={() => setView('overview')}
                 savedAnswers={answers.achievement}
                 onSave={handleSaveAchievement}
+                questions={achievementQuestions}
               />
             </motion.div>
           )}
@@ -327,10 +394,10 @@ export default function AssessmentsPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.8, ease: easeOutExpo }}
-                onClick={() => navigate('/dna-upload')}
+                onClick={() => navigate('/gap-analysis')}
                 className="glass-btn"
               >
-                Continue to DNA Upload
+                Continue to Your Results
               </motion.button>
             </motion.div>
           )}

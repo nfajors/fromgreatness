@@ -66,7 +66,7 @@ export default function OnboardingPage() {
   }, []);
 
   const handleRedirect = useCallback(() => {
-    navigate('/assessments');
+    navigate('/dna-upload');
   }, [navigate]);
 
   return (
