@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRouter, authedQuery } from "./middleware";
+import { createRouter, authedQuery, subscribedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import {
   studyPlans,
@@ -103,7 +103,7 @@ export const studyPlanRouter = createRouter({
     }),
 
   // ─── Generate & persist AI-personalized study plans for a student ───
-  generate: authedQuery
+  generate: subscribedQuery
     .input(
       z.object({
         studentId: z.number(),

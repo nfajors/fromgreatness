@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { trpc } from '@/providers/trpc';
 import { motion } from 'framer-motion';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -38,6 +39,25 @@ export default function ParentalConsentStep({ onContinue, onBack }: ParentalCons
 
   const allRequiredChecked =
     consents.dataCollection && consents.communication && consents.terms && guardianName.trim().length > 0;
+
+  const recordConsent = trpc.consent.record.useMutation();
+
+  const handleConsentContinue = async () => {
+    try {
+      await recordConsent.mutateAsync({
+        guardianName: guardianName.trim(),
+        dataCollection: consents.dataCollection,
+        communication: consents.communication,
+        photoVideo: consents.photoVideo,
+        terms: consents.terms,
+        signatureProvided: hasSigned,
+      });
+    } catch {
+      // Even if recording fails we don't hard-block onboarding, but the attempt
+      // is logged server-side; the parent can re-consent later.
+    }
+    onContinue();
+  };
 
   // Canvas signature setup
   const getCanvasPos = useCallback(
@@ -194,7 +214,7 @@ export default function ParentalConsentStep({ onContinue, onBack }: ParentalCons
             />
             <div>
               <p className="text-sm text-lightSilver leading-relaxed">
-                I consent to my child uploading video responses during the Cultural Identity assessment. These videos are used for AI analysis and are only visible to you and authorized teachers.
+                I consent to my child recording optional video reflections during the Cultural Identity assessment. These recordings stay on your device for personal reflection and are not uploaded or stored on our servers.
               </p>
               <button type="button" className="text-xs text-accentBlue hover:underline mt-1">
                 Learn more about video privacy
@@ -291,8 +311,8 @@ export default function ParentalConsentStep({ onContinue, onBack }: ParentalCons
         </button>
         <motion.button
           type="button"
-          onClick={onContinue}
-          disabled={!allRequiredChecked}
+          onClick={handleConsentContinue}
+          disabled={!allRequiredChecked || recordConsent.isPending}
           className={cn(
             'flex-1 h-12 rounded-full font-semibold text-base transition-all duration-300',
             allRequiredChecked

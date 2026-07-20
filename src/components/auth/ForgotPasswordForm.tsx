@@ -119,7 +119,7 @@ export default function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) 
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.15, duration: 0.4 }}
             >
-              Check your email!
+              Password reset
             </motion.h2>
             <motion.p
               className="text-lightSilver mb-8"
@@ -127,7 +127,7 @@ export default function ForgotPasswordForm({ onBack }: ForgotPasswordFormProps) 
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.4 }}
             >
-              We've sent a password reset link to your inbox.
+              Automated password reset isn’t available yet. Please email schools@fromgreatness.app from your account address and we’ll help you reset it.
             </motion.p>
             <motion.button
               type="button"

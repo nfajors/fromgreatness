@@ -11,7 +11,21 @@ import {
   createPasswordUser,
 } from "./queries/users";
 import { getDb } from "./queries/connection";
-import { users } from "@db/schema";
+import {
+  users,
+  students,
+  assessments,
+  dnaResults,
+  gapAnalyses,
+  studyPlans,
+  studyModules,
+  moduleProgress,
+  parentActions,
+  studentAchievements,
+  subscriptions,
+  activities,
+  parentalConsents,
+} from "@db/schema";
 import { eq } from "drizzle-orm";
 
 const emailSchema = z.string().email().max(320);
@@ -151,6 +165,57 @@ export const authRouter = createRouter({
         .update(users)
         .set(updates)
         .where(eq(users.id, ctx.user.id));
+      return { success: true };
+    }),
+
+  // ─── Permanently delete the account and all associated data ───
+  deleteAccount: authedQuery
+    .input(z.object({ confirm: z.literal(true) }))
+    .mutation(async ({ ctx }) => {
+      const db = getDb();
+      const parentId = ctx.user.id;
+
+      // Gather this parent's students so we can cascade child-scoped tables.
+      const kids = await db.query.students.findMany({
+        where: eq(students.parentId, parentId),
+      });
+      const studentIds = kids.map((k) => k.id);
+
+      // Cancel Stripe billing first so deletion never leaves an active charge.
+      try {
+        const { stripeEnabled } = await import("./lib/env");
+        if (stripeEnabled) {
+          const sub = await db.query.subscriptions.findFirst({
+            where: eq(subscriptions.parentId, parentId),
+          });
+          if (sub?.stripeSubscriptionId) {
+            const { getStripe } = await import("./lib/stripe");
+            await getStripe().subscriptions.cancel(sub.stripeSubscriptionId);
+          }
+        }
+      } catch (err) {
+        console.warn("[delete] stripe cancel failed (continuing):", err);
+      }
+
+      // Delete child-scoped rows for each student.
+      for (const sid of studentIds) {
+        await db.delete(assessments).where(eq(assessments.studentId, sid));
+        await db.delete(dnaResults).where(eq(dnaResults.studentId, sid));
+        await db.delete(gapAnalyses).where(eq(gapAnalyses.studentId, sid));
+        await db.delete(studyModules).where(eq(studyModules.studentId, sid));
+        await db.delete(studyPlans).where(eq(studyPlans.studentId, sid));
+        await db.delete(moduleProgress).where(eq(moduleProgress.studentId, sid));
+        await db.delete(studentAchievements).where(eq(studentAchievements.studentId, sid));
+        await db.delete(activities).where(eq(activities.studentId, sid));
+      }
+
+      // Parent-scoped rows, then the students, then the user.
+      await db.delete(parentActions).where(eq(parentActions.parentId, parentId));
+      await db.delete(subscriptions).where(eq(subscriptions.parentId, parentId));
+      await db.delete(parentalConsents).where(eq(parentalConsents.parentId, parentId));
+      await db.delete(students).where(eq(students.parentId, parentId));
+      await db.delete(users).where(eq(users.id, parentId));
+
       return { success: true };
     }),
 });

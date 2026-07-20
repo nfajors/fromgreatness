@@ -298,7 +298,7 @@ export default function LandingPage() {
           </div>
 
           <p className="text-xs text-mediumGray uppercase tracking-wider reveal-section">
-            Trusted by 2,000+ families, 150+ schools, and youth mentoring organizations nationwide.
+            Heritage-based education, personalized to your child’s ancestry.
           </p>
         </div>
       </section>
@@ -747,7 +747,7 @@ export default function LandingPage() {
             Your Child's Greatness Is Written in Their DNA. Let's Read It Together.
           </h2>
           <p className="font-body text-lg text-lightSilver mb-8 reveal-section">
-            Join thousands of families discovering the power of heritage-based education.
+            Discover the power of heritage-based education for your family.
           </p>
           <div className="reveal-section">
             <Link to="/auth">

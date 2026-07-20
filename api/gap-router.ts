@@ -1,12 +1,13 @@
 import { z } from "zod";
 import { createRouter, authedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
-import { gapAnalyses, dnaResults } from "@db/schema";
+import { gapAnalyses, dnaResults, assessments } from "@db/schema";
 import { eq } from "drizzle-orm";
 
 function generateGapAnalysis(
   studentId: number,
   ancestryData: Array<{ region: string; percentage: number }> | null,
+  knowledgeScores?: { achievementScore: number | null; culturalScore: number | null },
 ) {
   const domains = ["history", "language", "food", "dress"] as const;
   const existingIdentity: Record<string, number> = {};
@@ -23,11 +24,32 @@ function generateGapAnalysis(
   const baseHeritage =
     ancestryData && ancestryData.length > 0 ? ancestryData[0].percentage : 50;
 
+  // Existing knowledge comes from the real assessments where available: the
+  // achievement test (factual heritage knowledge) and the cultural-identity
+  // test (felt connection). We blend them into a per-domain baseline. When a
+  // score is missing, fall back to a modest deterministic estimate so the page
+  // still renders — but real scores drive it whenever they exist.
+  const ach = knowledgeScores?.achievementScore;
+  const cul = knowledgeScores?.culturalScore;
+  const realBaseline =
+    ach != null && cul != null
+      ? Math.round(ach * 0.6 + cul * 0.4)
+      : ach != null
+        ? ach
+        : cul != null
+          ? cul
+          : null;
+
   domains.forEach((domain, idx) => {
-    // Deterministic per-(student, domain) variation instead of Math.random(),
-    // so the analysis is stable when the parent revisits it.
-    const seed = (studentId * 17 + idx * 23) % 35;
-    existingIdentity[domain] = Math.max(8, 12 + seed);
+    if (realBaseline != null) {
+      // Vary slightly per domain around the measured baseline (±6) so domains
+      // aren't identical, but keep it anchored to the child's real score.
+      const jitter = ((studentId + idx * 7) % 13) - 6;
+      existingIdentity[domain] = Math.max(4, Math.min(96, realBaseline + jitter));
+    } else {
+      const seed = (studentId * 17 + idx * 23) % 35;
+      existingIdentity[domain] = Math.max(8, 12 + seed);
+    }
     geneticProfile[domain] = Math.min(
       95,
       Math.floor(baseHeritage * 0.8) + 10 + ((studentId * 7 + idx * 11) % 15),
@@ -99,8 +121,21 @@ export const gapRouter = createRouter({
         where: eq(dnaResults.studentId, input.studentId),
       });
 
+      // Pull the child's real assessment results. The Achievement and Cultural
+      // Identity tests measure existing heritage knowledge — that's the honest
+      // basis for "current level", instead of a hash of the student id.
+      const studentAssessments = await getDb().query.assessments.findMany({
+        where: eq(assessments.studentId, input.studentId),
+      });
+      const achievement = studentAssessments.find((a) => a.type === "achievement");
+      const cultural = studentAssessments.find((a) => a.type === "cultural_identity");
+      const knowledgeScores = {
+        achievementScore: achievement?.score ?? null,
+        culturalScore: cultural?.score ?? null,
+      };
+
       const ancestrySummary = dnaData?.ancestrySummary ?? null;
-      const generated = generateGapAnalysis(input.studentId, ancestrySummary);
+      const generated = generateGapAnalysis(input.studentId, ancestrySummary, knowledgeScores);
 
       // Delete existing analysis
       await getDb()

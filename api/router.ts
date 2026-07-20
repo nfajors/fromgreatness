@@ -10,6 +10,7 @@ import { achievementRouter } from "./achievement-router";
 import { subscriptionRouter } from "./subscription-router";
 import { aiRouter } from "./ai-router";
 import { activityRouter } from "./activity-router";
+import { consentRouter } from "./consent-router";
 import { createRouter, publicQuery } from "./middleware";
 
 export const appRouter = createRouter({
@@ -26,6 +27,7 @@ export const appRouter = createRouter({
   subscription: subscriptionRouter,
   ai: aiRouter,
   activity: activityRouter,
+  consent: consentRouter,
 });
 
 export type AppRouter = typeof appRouter;

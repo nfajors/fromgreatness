@@ -8,6 +8,7 @@ import { stripeEnabled } from "./lib/env";
 import {
   createCheckoutSession,
   createBillingPortalSession,
+  getStripe,
 } from "./lib/stripe";
 
 export const subscriptionRouter = createRouter({
@@ -105,11 +106,39 @@ export const subscriptionRouter = createRouter({
     }),
 
   cancel: authedQuery.mutation(async ({ ctx }) => {
+    const sub = await getDb().query.subscriptions.findFirst({
+      where: eq(subscriptions.parentId, ctx.user.id),
+    });
+
+    // If Stripe is configured and we have the Stripe subscription id, cancel
+    // at period end THERE — the webhook is the source of truth and will update
+    // our DB. This prevents the "cancelled locally but still charged" bug.
+    if (stripeEnabled && sub?.stripeSubscriptionId) {
+      try {
+        const stripe = getStripe();
+        await stripe.subscriptions.update(sub.stripeSubscriptionId, {
+          cancel_at_period_end: true,
+        });
+        await getDb()
+          .update(subscriptions)
+          .set({ autoRenew: false })
+          .where(eq(subscriptions.parentId, ctx.user.id));
+        return { success: true, cancelsAtPeriodEnd: true };
+      } catch (err) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message:
+            "We couldn't cancel your subscription with our payment provider. Please use the Billing Portal or contact support.",
+        });
+      }
+    }
+
+    // No Stripe subscription on file (e.g. legacy/comped account): flip locally.
     await getDb()
       .update(subscriptions)
       .set({ status: "cancelled", cancelledAt: new Date(), autoRenew: false })
       .where(eq(subscriptions.parentId, ctx.user.id));
-    return { success: true };
+    return { success: true, cancelsAtPeriodEnd: false };
   }),
 
   updateAutoRenew: authedQuery

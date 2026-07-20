@@ -54,8 +54,14 @@ export default function RegisterStep2({ registration, onBack }: RegisterStep2Pro
         window.location.href = url; // redirect to Stripe hosted checkout
         return;
       } catch (checkoutErr) {
-        console.warn('Checkout unavailable, continuing to onboarding:', checkoutErr);
-        navigate('/onboarding');
+        console.warn('Checkout unavailable:', checkoutErr);
+        // Only bypass payment in development. In production, a failed checkout
+        // must not grant access — surface the error instead.
+        if (import.meta.env.DEV) {
+          navigate('/onboarding');
+        } else {
+          throw checkoutErr;
+        }
       }
     } catch (err) {
       const message =

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createRouter, authedQuery } from "./middleware";
+import { createRouter, authedQuery, subscribedQuery } from "./middleware";
 import { getDb } from "./queries/connection";
 import { assessments, dnaResults, students } from "@db/schema";
 import { eq } from "drizzle-orm";
@@ -109,7 +109,7 @@ const MODULE_TEMPLATES: Record<string, Array<{ title: string; description: strin
 
 export const aiRouter = createRouter({
   // ─── Generate Gap Analysis ───
-  analyze: authedQuery
+  analyze: subscribedQuery
     .input(z.object({ studentId: z.number() }))
     .mutation(async ({ input }) => {
       // Fetch assessment data
@@ -218,7 +218,7 @@ export const aiRouter = createRouter({
     }),
 
   // ─── Generate Study Plans (AI-personalized, template fallback) ───
-  generateStudyPlans: authedQuery
+  generateStudyPlans: subscribedQuery
     .input(
       z.object({
         studentId: z.number(),

@@ -15,6 +15,13 @@
       "when": 1783379481541,
       "tag": "0001_bitter_red_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1784298524783,
+      "tag": "0002_white_stone_men",
+      "breakpoints": true
     }
   ]
 }

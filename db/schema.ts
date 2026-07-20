@@ -315,3 +315,24 @@ export const activities = mysqlTable("activities", {
 
 export type Activity = typeof activities.$inferSelect;
 export type InsertActivity = typeof activities.$inferInsert;
+
+// ─── Parental Consents (COPPA audit trail) ───
+export const parentalConsents = mysqlTable("parental_consents", {
+  id: serial("id").primaryKey(),
+  parentId: bigint("parentId", { mode: "number", unsigned: true }).notNull(),
+  studentId: bigint("studentId", { mode: "number", unsigned: true }),
+  guardianName: varchar("guardianName", { length: 255 }).notNull(),
+  consentDataCollection: boolean("consentDataCollection").default(false).notNull(),
+  consentCommunication: boolean("consentCommunication").default(false).notNull(),
+  consentPhotoVideo: boolean("consentPhotoVideo").default(false).notNull(),
+  consentTerms: boolean("consentTerms").default(false).notNull(),
+  consentTextVersion: varchar("consentTextVersion", { length: 50 }).notNull(),
+  signatureProvided: boolean("signatureProvided").default(false).notNull(),
+  ipAddress: varchar("ipAddress", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => [
+  index("pc_parentId_idx").on(table.parentId),
+]);
+
+export type ParentalConsent = typeof parentalConsents.$inferSelect;
+export type InsertParentalConsent = typeof parentalConsents.$inferInsert;

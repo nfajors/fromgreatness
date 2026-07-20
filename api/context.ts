@@ -6,12 +6,17 @@ export type TrpcContext = {
   req: Request;
   resHeaders: Headers;
   user?: User;
+  ipAddress?: string;
 };
 
 export async function createContext(
   opts: FetchCreateContextFnOptions,
 ): Promise<TrpcContext> {
-  const ctx: TrpcContext = { req: opts.req, resHeaders: opts.resHeaders };
+  const ipAddress =
+    opts.req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    opts.req.headers.get("x-real-ip") ||
+    undefined;
+  const ctx: TrpcContext = { req: opts.req, resHeaders: opts.resHeaders, ipAddress };
   try {
     ctx.user = await getUserFromRequest(opts.req.headers);
   } catch {

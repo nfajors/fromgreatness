@@ -3,12 +3,25 @@ import { motion } from 'framer-motion';
 import { ChevronLeft, Dna, Download, AlertTriangle } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import BottomSheet from './BottomSheet';
+import { trpc } from '@/providers/trpc';
 
 interface PrivacyDataViewProps {
   onBack: () => void;
 }
 
 export default function PrivacyDataView({ onBack }: PrivacyDataViewProps) {
+  const deleteAccount = trpc.auth.deleteAccount.useMutation();
+
+  const handleDeleteAccount = async () => {
+    try {
+      await deleteAccount.mutateAsync({ confirm: true });
+      // Account is gone — send them to the landing/auth page.
+      window.location.href = '/';
+    } catch {
+      // If deletion fails, keep the sheet open; the user can retry.
+    }
+  };
+
   const [shareAnonymized, setShareAnonymized] = useState(true);
   const [allowAnalytics, setAllowAnalytics] = useState(true);
   const [showDeleteDnaSheet, setShowDeleteDnaSheet] = useState(false);
@@ -217,10 +230,11 @@ export default function PrivacyDataView({ onBack }: PrivacyDataViewProps) {
             Keep My Account
           </button>
           <button
-            onClick={() => setShowDeleteAccountSheet(false)}
-            className="w-full py-3.5 text-sm font-medium text-softRed border border-[rgba(248,113,113,0.3)] rounded-full hover:bg-[rgba(248,113,113,0.1)] transition-colors"
+            onClick={handleDeleteAccount}
+            disabled={deleteAccount.isPending}
+            className="w-full py-3.5 text-sm font-medium text-softRed border border-[rgba(248,113,113,0.3)] rounded-full hover:bg-[rgba(248,113,113,0.1)] transition-colors disabled:opacity-60"
           >
-            Permanently Delete Account
+            {deleteAccount.isPending ? 'Deleting…' : 'Permanently Delete Account'}
           </button>
         </div>
       </BottomSheet>
